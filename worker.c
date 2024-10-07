@@ -21,6 +21,7 @@ struct msg_buffer {
 };
 
 int main(int argc, char *argv[]) {
+    // Check command line arguments
     if (argc != 3) {
         fprintf(stderr, "Usage: %s <seconds> <nanoseconds>\n", argv[0]);
         exit(1);
@@ -37,7 +38,7 @@ int main(int argc, char *argv[]) {
     // Get the shared memory ID
     shmid = shmget(IPC_PRIVATE, sizeof(struct Clock), 0777);
     if (shmid < 0) {
-        perror("shmget");
+        perror("Get shared memory ID error");
         exit(1);
     }
 
@@ -56,33 +57,35 @@ int main(int argc, char *argv[]) {
     }
 
     // Worker process logic
-    printf("WORKER PID:%d PPID:%d SysClockS: %d SysClockNano: %d -- Just Starting\n", getpid(), getppid(), shm_clock->seconds, shm_clock->nanoseconds);
+    printf("WORKER PID:%d PPID:%d SysClockS: %d SysClockNano: %d -- Just Starting\n", 
+           getpid(), getppid(), shm_clock->seconds, shm_clock->nanoseconds);
 
     while (1) {
-        // Read the clock value
+        // Read the current clock value
         int current_time = shm_clock->seconds * 1000000000 + shm_clock->nanoseconds;
 
+        // Check if the current time has reached the total time to run
         if (current_time >= total_nanoseconds) {
             struct msg_buffer msg;
             msg.msg_type = 1; 
-            msg.msg_data = 0; 
+            msg.msg_data = 0;
 
             msgsnd(msgid, &msg, sizeof(msg.msg_data), 0);
             printf("WORKER PID:%d -- Terminating after reaching specified time.\n", getpid());
-            break;
+            break; // Exit the loop and terminate the worker
         }
 
-        // Simulate work and send message back to oss
+        // Simulate doing work and send a message back to oss
         struct msg_buffer msg;
-        msg.msg_type = 1; // Message type
-        msg.msg_data = 1; // Indicate work done
+        msg.msg_type = 1; 
+        msg.msg_data = 1; 
         msgsnd(msgid, &msg, sizeof(msg.msg_data), 0);
 
-        // Simulate delay
-        usleep(100000); // Sleep for 100 milliseconds
+        // Sleep for delay
+        usleep(100000); 
     }
 
-    // Cleanup
+    // Cleanupy
     shmdt(shm_clock);
     return 0;
 }
